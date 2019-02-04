@@ -1,5 +1,8 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 import Control.Monad
 
@@ -20,7 +23,7 @@ instance Functor List where
 
 instance Applicative List where
   pure x = x :-: Nil
-  (f :-: fs) <*> (x :-: xs) = (f x) :-: (fs <*> xs)
+  (f :-: fs) <*> (x :-: xs) = (f x) :-: (fs <*> xs) -- this is not what [] does
   Nil <*> _ = Nil
   _ <*> Nil = Nil
 
@@ -53,6 +56,7 @@ instance Functor (State s) where
   fmap ab sa = State $ \s -> let (s1,a) = effect sa s
                              in  (s1,ab a)
 
+-- factorial with counter
 type Counter = Int
 
 factorial :: Int -> Int
@@ -64,15 +68,28 @@ factorialS 0 = State $ \s -> (0, 1)
 factorialS n = State $ \s -> let (previousState, previousValue) = effect (factorialS $ n-1) 0
                              in  (previousState + 1, previousValue * n)
 
-class Recursive r where
+-- recursive function definition
+class SimplyRecursive r where
   isBase :: r -> Bool
   recurse :: r -> r
   backtrack :: r -> r
   backtrack n = if isBase n then n else backtrack $ recurse n
 
+assembleSteps :: SimplyRecursive r => (r -> a -> a) -> r -> (a -> a)
+assembleSteps step argument =
+  if isBase argument
+     then id
+     else step argument . (assembleSteps step $ recurse argument)
+
+runRecursive :: SimplyRecursive r => (r -> a) -> (r -> a -> a) -> r -> a
+runRecursive baseCase step argument =
+  let f = assembleSteps step argument
+      in f $ baseCase $ backtrack argument
+
+-- example: factorial
 type Nat = Int
 
-instance Recursive Nat where
+instance SimplyRecursive Nat where
   isBase m = m == 0 
   recurse m = if m == 0 then 0 else m - 1
 
@@ -82,30 +99,69 @@ factBase 0 = 1
 factStep :: Nat -> Int -> Int
 factStep = \n -> (*n)
 
-assembleSteps :: Recursive r => (r -> a -> a) -> r -> (a -> a)
-assembleSteps step argument =
-  if isBase argument
-     then id
-     else step argument . (assembleSteps step $ recurse argument)
+-- 0 1 1 2 3 5 8 13 21 34
 
-runRecursive :: Recursive r => (r -> a) -> (r -> a -> a) -> r -> a
-runRecursive baseCase step argument = let f = assembleSteps step argument
-                                      in f (baseCase (backtrack argument))
+class Recursive r m where
+  recurseAll :: (Monad m, Recursive (m r) m) => r -> m r
 
-liftRecursive:: Recursive a => (a -> a) -> (a -> a) -> a -> State Counter a
-liftRecursive base step x = if isBase x
-                               then State $ \s -> (0, base x)
-                               else State $ \s -> (s + 1, f $ previous x)
+instance SimplyRecursive a => Recursive [a] [] where
+  recurseAll [] = []
+  recurseAll [x] = [[]]
+  recurseAll xs = (map drop [0..recurse $ length xs]) <*> [xs]
 
--- factorial 2 
--- State $ \s -> (s+1, returnValue 0 $ factorial 1)
--- State $ \s -> (s+1, returnValue 0 $ State $ \s -> (s+1, returnValue 0 $ factorial 0))
--- State $ \s -> (s+1, returnValue 0 $ State $ \s -> (s+1, returnValue 0 $ State $ \s -> (0, 1)))
--- State $ \s -> (s+1, returnValue 0 $ State $ \s -> (s+1, returnValue 0 $ State $ \s -> (0, 1)))
--- State $ \s -> (s+1, returnValue 0 $ State $ \s -> (s+1, 1))
--- State $ \s -> (s+1, returnValue 0 $ State $ \s -> (s+1, 1))
--- State $ \s -> (s+1, returnValue 0 $ State $ \s -> (s+1, 1))
--- State $ \s -> (s+1, 1)
+-- instance Recursive Int [] where
+--   recurseAll 0 = []
+--   recurseAll m  = [0..m-1]
+
+-- fibBase 0 = 0
+-- fibBase 1 = 1
+
+-- fibStep :: Nat -> [Int] -> Int -- will be replaced by :: [Int]
+-- fibStep _ xs = fibStep _ (recurse n !! 0)
+
+-- -- the type will by replaced by more general :: Recursive r, Recursive (R a) => (r -> R)
+-- assembleSteps :: Recursive r => (r -> [a] -> a) -> r -> ([a] -> a) 
+-- assembleSteps step argument =
+--   if isBase argument
+--      then id
+--      else step argument . (assembleSteps step $ recurse argument)
+
+-- example: tower or hanoi
+
+data Position = Left | Middle | Right
+not :: Position -> Position -> Position
+not Main.Left Main.Middle = Main.Right
+not Main.Left Main.Right = Main.Middle
+not Main.Middle Main.Right = Main.Left
+not p r = Main.not r p
+
+type Height = Int
+data HanoiTask = HanoiTask
+  {from   :: Position
+  ,to     :: Position
+  ,height :: Height
+  }
+
+instance SimplyRecursive HanoiTask where
+  isBase HanoiTask{height = h} = h == 1
+  recurse HanoiTask{from = f, to = t, height = h} = HanoiTask {from = f, to = Main.not f t, height = h - 1}
+
+type Path = [(Position, Position)]
+
+-- hanoiBase :: HanoiTask -> Path
+-- hanoiBase HanoiTask{height = 1} = [(from,to)]
+
+-- hanoiStep :: HanoiTask -> Int -> Int
+-- hanoiStep HanoiTask{} = 
+
+
+-- assembleStepsWithCounter :: Recursive r => (r -> a -> a) -> r -> (a -> a)
+-- assembleStepsWithCounter step argument
+
+-- runRecursiveWithCounter :: Recursive r => (r -> a) -> (r -> a -> a) -> r -> State Counter a
+-- runRecursiveWithCounter baseCase step argument =
+--   let f = assembleStepsWithCounter step argument
+--       in baseCase >>= (f $ baseCase $ backtrack argument)
 
 -- My State monad with state logging
 data LoggingState s a = Show s => LoggingState {effectAndLog :: s -> IO((s,a))}
