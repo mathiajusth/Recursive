@@ -99,16 +99,19 @@ factBase 0 = 1
 factStep :: Nat -> Int -> Int
 factStep = \n -> (*n)
 
+-- 0 1 2 3 4 5 6  7  8  9
 -- 0 1 1 2 3 5 8 13 21 34
+-- fib 9 <~ +[fib 8, fib 7] <~ +[+[fib 7, fib 6], +[fib 6, fib 5]]
+-- class Recursive r m where
+--   recurseAll :: (Monad m, Recursive (m r) m) => r -> m r
 
-class Recursive r m where
-  recurseAll :: (Monad m, Recursive (m r) m) => r -> m r
+-- instance SimplyRecursive a => Recursive [a] [] where
+--   recurseAll [] = []
+--   recurseAll [x] = [[]]
+--   recurseAll xs = (map drop [0..recurse $ length xs]) <*> [xs]
 
-instance SimplyRecursive a => Recursive [a] [] where
-  recurseAll [] = []
-  recurseAll [x] = [[]]
-  recurseAll xs = (map drop [0..recurse $ length xs]) <*> [xs]
-
+class Recursive r s where
+  recurse :: r -> s
 -- instance Recursive Int [] where
 --   recurseAll 0 = []
 --   recurseAll m  = [0..m-1]
