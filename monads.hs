@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 
+
 import Control.Monad
 
 -- my List monad
@@ -19,11 +20,11 @@ concatenate ((x:-:xs) :-: xss) = x :-: concatenate (xs:-:xss)
 
 instance Functor List where
   fmap f Nil = Nil
-  fmap f (x:-:xs) = (f x) :-: (fmap f xs)
+  fmap f (x:-:xs) = f x :-: fmap f xs
 
 instance Applicative List where
   pure x = x :-: Nil
-  (f :-: fs) <*> (x :-: xs) = (f x) :-: (fs <*> xs) -- this is not what [] does
+  (f :-: fs) <*> (x :-: xs) = f x :-: (fs <*> xs) -- this is not what Applicative [] does
   Nil <*> _ = Nil
   _ <*> Nil = Nil
 
@@ -61,25 +62,25 @@ type Counter = Int
 
 factorial :: Int -> Int
 factorial 0 = 1 
-factorial n = n * (factorial $ n - 1)
+factorial n = n * factorial (n - 1)
 
 factorialS :: Int -> State Counter Int
 factorialS 0 = State $ \s -> (0, 1)
 factorialS n = State $ \s -> let (previousState, previousValue) = effect (factorialS $ n-1) 0
                              in  (previousState + 1, previousValue * n)
 
--- recursive function definition
+-- simply recursive function definition
 class SimplyRecursive r where
   isBase :: r -> Bool
-  recurse :: r -> r
+  simplyRecurse :: r -> r
   backtrack :: r -> r
-  backtrack n = if isBase n then n else backtrack $ recurse n
+  backtrack n = if isBase n then n else backtrack $ simplyRecurse n
 
 assembleSteps :: SimplyRecursive r => (r -> a -> a) -> r -> (a -> a)
 assembleSteps step argument =
   if isBase argument
      then id
-     else step argument . (assembleSteps step $ recurse argument)
+     else step argument . assembleSteps step (simplyRecurse argument)
 
 runRecursive :: SimplyRecursive r => (r -> a) -> (r -> a -> a) -> r -> a
 runRecursive baseCase step argument =
@@ -91,13 +92,13 @@ type Nat = Int
 
 instance SimplyRecursive Nat where
   isBase m = m == 0 
-  recurse m = if m == 0 then 0 else m - 1
+  simplyRecurse m = if m == 0 then 0 else m - 1
 
-factBase :: Nat -> Int
-factBase 0 = 1
+factBaseS :: Nat -> Int
+factBaseS 0 = 1
 
-factStep :: Nat -> Int -> Int
-factStep = \n -> (*n)
+factStepS :: Nat -> Int -> Int
+factStepS n = (*n)
 
 -- 0 1 2 3 4 5 6  7  8  9
 -- 0 1 1 2 3 5 8 13 21 34
@@ -105,19 +106,70 @@ factStep = \n -> (*n)
 -- class Recursive r m where
 --   recurseAll :: (Monad m, Recursive (m r) m) => r -> m r
 
--- instance SimplyRecursive a => Recursive [a] [] where
---   recurseAll [] = []
---   recurseAll [x] = [[]]
---   recurseAll xs = (map drop [0..recurse $ length xs]) <*> [xs]
+-- recursive function definition
+class WithSubset r where
+  isInSubset :: r -> Bool
 
-class Recursive r s where
-  recurse :: r -> s
--- instance Recursive Int [] where
---   recurseAll 0 = []
---   recurseAll m  = [0..m-1]
+class (Functor m, WithSubset r) => Recursive m r where
+  recurse :: Functor m => r -> m r
 
--- fibBase 0 = 0
--- fibBase 1 = 1
+assembleRecursiveSteps :: (Recursive m a, WithSubset a) => (a -> m b -> b) -> (a -> b) -> a -> b
+assembleRecursiveSteps step base x =
+  if isInSubset x
+     then base x
+     else step x $ fmap (assembleRecursiveSteps step base) (recurse x)
+
+-- Fibonacci
+newtype FibNat = FibNat Int
+
+instance WithSubset FibNat where
+  isInSubset (FibNat x) = x == 0 || x == 1
+
+instance Recursive [] FibNat where
+  recurse (FibNat x)
+    | x >= 2    = [FibNat $ x - 2, FibNat $ x - 1]
+    | otherwise = return . FibNat $ x
+
+fibBase :: FibNat -> Int
+fibBase (FibNat 0) = 0
+fibBase (FibNat 1) = 1
+
+fibStep :: FibNat -> [Int] -> Int
+fibStep _ = sum
+
+fib :: FibNat -> Int
+fib n =
+  if isInSubset n
+     then fibBase n
+     else fibStep n (fmap fib (recurse n))
+
+-- Factorial
+newtype FactNat = FactNat Int
+
+instance WithSubset FactNat where
+  isInSubset (FactNat n) = n == 0
+
+newtype Id a = Id a
+
+instance Functor Id where
+  fmap f  (Id a) = Id $ f a
+
+instance Recursive Id FactNat where
+  recurse (FactNat x)
+    | x >= 1    = Id . FactNat $ x - 1
+    | otherwise = Id . FactNat $ x
+
+factBase :: FactNat -> Int
+factBase (FactNat 0) = 1
+
+factStep :: FactNat -> Id Int -> Int
+factStep (FactNat n) (Id x) = n*x
+
+fact :: FactNat -> Int
+fact n =
+  if isInSubset n
+     then factBase n
+     else factStep n (fmap fact (recurse n))
 
 -- fibStep :: Nat -> [Int] -> Int -- will be replaced by :: [Int]
 -- fibStep _ xs = fibStep _ (recurse n !! 0)
@@ -147,7 +199,7 @@ data HanoiTask = HanoiTask
 
 instance SimplyRecursive HanoiTask where
   isBase HanoiTask{height = h} = h == 1
-  recurse HanoiTask{from = f, to = t, height = h} = HanoiTask {from = f, to = Main.not f t, height = h - 1}
+  simplyRecurse HanoiTask{from = f, to = t, height = h} = HanoiTask {from = f, to = Main.not f t, height = h - 1}
 
 type Path = [(Position, Position)]
 
@@ -167,7 +219,7 @@ type Path = [(Position, Position)]
 --       in baseCase >>= (f $ baseCase $ backtrack argument)
 
 -- My State monad with state logging
-data LoggingState s a = Show s => LoggingState {effectAndLog :: s -> IO((s,a))}
+data LoggingState s a = Show s => LoggingState {effectAndLog :: s -> IO(s,a)}
 
 instance Show s => Monad (LoggingState s) where
   -- if a Record (newtype Record = Record {entry :: a}) has just a single entry 
