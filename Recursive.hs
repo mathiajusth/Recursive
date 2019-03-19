@@ -1,10 +1,15 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Recursive where
 
 import Control.Monad
+import Test.QuickCheck.Arbitrary
+import GHC.Generics (Generic)
+import Test.QuickCheck
+import Generic.Random
 
 class WithSubset r where
   isInSubset :: r -> Bool
@@ -96,7 +101,10 @@ instance WithSubset HanoiTask where
   isInSubset HanoiTask{height = h} = h == 0 || h == 1
 
 data Triple a = Triple{first :: a, second :: a, third :: a}
-              deriving (Show, Eq)
+              deriving (Show, Eq, Generic)
+
+instance Arbitrary a => Arbitrary (Triple a) where
+  arbitrary = genericArbitrary uniform
 
 instance Functor Triple where
   fmap f t = Triple (f $ first t) (f $ second t) (f $ third t)
@@ -118,13 +126,13 @@ reorderTriple order triple@(Triple a b c) =
 -- Cycle permuattions
 type Tricycle = [Int]
 
-data Fallible a = Success a | Error String
+data Fallible a = Suc a | Err String
 
 instance Monad Fallible where
-  return = Success
+  return = Suc
   fx >>= f = case fx of
-                  (Success x) -> f x
-                  Error s -> Error s
+                  (Suc x) -> f x
+                  Err s -> Err s
 
 instance Applicative Fallible where
   pure = return
@@ -144,8 +152,8 @@ isInRange p q x = x `elem` [p..q]
 isTricycleValid :: Tricycle -> Fallible Tricycle
 isTricycleValid cycle = let size = length cycle
   in if (size == 2 || size == 3) && isHetero cycle && all (isInRange 0 2) cycle
-        then Success cycle
-        else Error $ "Invalid Tricycle:" ++ show cycle
+        then Suc cycle
+        else Err $ "Invalid Tricycle:" ++ show cycle
 
 cycleTriple :: Tricycle -> Triple a -> Fallible (Triple a)
 cycleTriple cycle triple =
