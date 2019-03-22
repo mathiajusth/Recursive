@@ -93,30 +93,18 @@ data HanoiTask = HanoiTask
   }
 
 instance WithSubset HanoiTask where
-  isInSubset HanoiTask{height = h} = h == 0 || h == 1
+  isInSubset HanoiTask{height} = height == 0 || height == 1
 
 instance Recursive Triple HanoiTask where
-  recurse HanoiTask{from = from, to = to, height = height} =
-    let other = otherPole from to
-        in Triple (HanoiTask{from = from
-                            ,to = other
-                            ,height = height - 1
-                            }
-                  )
-                  (HanoiTask{from = from
-                            ,to = to
-                            ,height = 1
-                            }
-                  )
-                  (HanoiTask{from = other
-                            ,to = to
-                            ,height = height - 1
-                            }
-                  )
+  recurse HanoiTask{from, to, height} =
+    Triple (HanoiTask from  other (height - 1))
+           (HanoiTask from  to    1           )
+           (HanoiTask other to    (height - 1))
+        where other = otherPole from to
 
 type Steps = [(Pole,Pole)]
 hanoiBase :: HanoiTask -> Steps
-hanoiBase HanoiTask{from = from, to = to, height = height}
+hanoiBase HanoiTask{from, to, height}
   | height == 0 = []
   | height == 1 = [(from, to)]
   | otherwise = error "Not a base element"
@@ -124,8 +112,8 @@ hanoiBase HanoiTask{from = from, to = to, height = height}
 hanoiStep :: HanoiTask -> Triple Steps -> Steps
 hanoiStep _ (Triple top bottom topOnBottom) = top ++ bottom ++ topOnBottom
 
-toh :: Height -> Steps
-toh h = assemble hanoiStep hanoiBase $ HanoiTask{from = First, to = Third, height = h}
+solveHT :: Height -> Steps
+solveHT h = assemble hanoiStep hanoiBase $ HanoiTask{from = First, to = Third, height = h}
 
 -- TESTING
 
@@ -133,25 +121,21 @@ type Brick = Int
 type Tower = [Brick]
 type HanoiTowers = Triple Tower
 
-initHT :: Int -> Triple Tower
-initHT n = Triple {first = [1..n], second = [], third = []}
+initHT :: Int -> HanoiTowers
+initHT n = Triple [1..n] [] []
 
-makeHT :: Tower -> Tower -> Tower -> HanoiTowers
-makeHT t1 t2 t3 =
-  Triple {first = t1
-         ,second = t2
-         ,third = t3
-         }
+buildTowers :: Int -> Int -> Int -> HanoiTowers
+buildTowers h1 h2 h3 = Triple [1..h1] [1..h2] [1..h3]
 
-switchTowers :: Pole -> Pole -> HanoiTowers -> HanoiTowers
-switchTowers p1 p2 ht 
-  | p1 == p2 = ht
-  | otherwise =
-      case (p1, p2) of
-           (First, Second) -> ht {first = second ht, second = first ht}
-           (Second, Third) -> ht {second = third ht, third = second ht}
-           (Third, First)  -> ht {first = third ht, third = first ht}
-           (x, y) -> switchTowers y x ht
+-- switchTowers :: Pole -> Pole -> HanoiTowers -> HanoiTowers
+-- switchTowers p q ht 
+--   | p == q = ht
+--   | otherwise =
+--       case (p, q) of
+--            (First, Second) -> ht {first = second ht, second = first ht}
+--            (Second, Third) -> ht {second = third ht, third = second ht}
+--            (Third, First)  -> ht {first = third ht, third = first ht}
+--            (x, y) -> switchTowers y x ht
 
 choseTower :: Pole -> HanoiTowers -> Tower
 choseTower pole ht =
@@ -160,33 +144,37 @@ choseTower pole ht =
        Second -> second ht
        Third -> third ht
 
+toPosition :: Pole -> Int
+toPosition First = 0
+toPosition Second = 1
+toPosition Third = 2
+
 moveBrick :: Pole -> Pole -> HanoiTowers -> HanoiTowers
-moveBrick p1 p2 ht =
-  let (moveFromT, moveToT) = (choseTower p1 ht, choseTower p2 ht)
+moveBrick p q ht =
+  let (moveFromT, moveToT) = (choseTower p ht, choseTower q ht)
       in case (moveFromT, moveToT) of
               ([], _) ->
-                error $ "there is no brick to move from '" ++ show p1 ++ "' pole"
+                error $ "there is no brick to move from '" ++ show p ++ "' pole"
               (brick1:_, brick2:_) ->
                 if brick1 < brick2
-                   then unsafelyMoveBrick p1 p2 ht
+                   then unsafelyMoveBrick p q ht
                    else error "Cannot move a bigger brick onto a smaller one"
-              (_,_) -> unsafelyMoveBrick p1 p2 ht
+              (_,_) -> unsafelyMoveBrick p q ht
 
 unsafelyMoveBrick :: Pole -> Pole -> HanoiTowers -> HanoiTowers
 unsafelyMoveBrick First Second ht@Triple{first = (b:bs), second} =
-  ht {first = bs
-     ,second = b:second
-     }
+  ht {first = bs, second = b:second}
 unsafelyMoveBrick Second First ht =
-  (switchTowers First Second 
+  (transposeTriple 0 1 
   .unsafelyMoveBrick First Second 
-  .switchTowers First Second
+  .transposeTriple 0 1
   ) ht
-unsafelyMoveBrick p1 p2 ht =
-  (switchTowers Second p2 . switchTowers First p1
-  .unsafelyMoveBrick First Second
-  .switchTowers First p1 . switchTowers Second p2
-  ) ht
+unsafelyMoveBrick p q ht =
+  let [p',q',r'] = fmap toPosition [p,q,otherPole p q]
+      in (transposeTriple 1 q' . transposeTriple 0 p'
+         .unsafelyMoveBrick First Second
+         .reorderTriple (Triple p' q' r')
+         ) ht
 
 moveBricks :: Steps -> HanoiTowers -> HanoiTowers
 moveBricks steps ht = foldl (flip $ uncurry moveBrick) ht steps
