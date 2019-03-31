@@ -156,7 +156,7 @@ moveBrick p q ht =
               ([], _) ->
                 error $ "there is no brick to move from '" ++ show p ++ "' pole"
               (brick1:_, brick2:_) ->
-                if brick1 < brick2
+                if brick1 <= brick2
                    then unsafelyMoveBrick p q ht
                    else error "Cannot move a bigger brick onto a smaller one"
               (_,_) -> unsafelyMoveBrick p q ht

@@ -7,6 +7,7 @@ import Test.QuickCheck.Arbitrary
 import GHC.Generics (Generic)
 import Generic.Random
 
+import MyList (isInRange)
 import Data.Group
 import Data.Monoid
 
@@ -19,7 +20,9 @@ instance Arbitrary a => Arbitrary (Triple a) where
 instance Functor Triple where
   fmap f t = Triple (f $ first t) (f $ second t) (f $ third t)
 
+--------------------------
 -- Reorder permutations
+--------------------------
 type Triorder = Triple Int
 
 reorderTriple :: Triorder -> Triple a -> Triple a
@@ -33,31 +36,26 @@ reorderTriple order triple@(Triple a b c) =
        (Triple 2 1 0) -> Triple c b a
        _       -> error $ "Triorder " ++ show order ++ " is not valid."
 
-toCycle :: Triorder -> Cycle
-toCycle order =
+orderToCycle :: Triorder -> Cycle
+orderToCycle order =
   case order of
        (Triple 0 1 2) -> EmptyCycle
-       (Triple 0 2 1) -> Twocycle B C 
-       (Triple 1 0 2) -> Twocycle A B
-       (Triple 1 2 0) -> Tricycle A B C
-       (Triple 2 0 1) -> Tricycle A C B
-       (Triple 2 1 0) -> Twocycle A C
+       (Triple 0 2 1) -> Twocycle 1 2 
+       (Triple 1 0 2) -> Twocycle 0 1
+       (Triple 1 2 0) -> Tricycle 0 2 1
+       (Triple 2 0 1) -> Tricycle 0 1 2
+       (Triple 2 1 0) -> Twocycle 0 2
        _              -> error $ "Triorder " ++ show order ++ " is not valid."
 
+-- decomposeOrderToTranspositions :: Triorder -> [(Int,Int)]
+-- TODO HOLE
+
+--------------------------
 -- Cycle permuattions
-data Index3 = A | B | C
-            deriving (Eq,Show)
-
-fromIndex :: Index3 -> Int
-fromIndex index =
-  case index of
-       A -> 0
-       B -> 1
-       C -> 2
-
+--------------------------
 data Cycle = EmptyCycle
-           | Twocycle Index3 Index3
-           | Tricycle Index3 Index3 Index3
+           | Twocycle Int Int
+           | Tricycle Int Int Int
            deriving (Eq, Show)
 -- TODO define own Eq e.g. Tricycle A B C == Tricycle B C A == Tricycle C A B
 
@@ -66,85 +64,66 @@ instance Group Cycle where
   invert cycle =
     case cycle of
          EmptyCycle     -> EmptyCycle
-         Twocycle p q   -> Twocycle p q
+         Twocycle p q   -> Twocycle q p
          Tricycle p q r -> Tricycle r q p
 
-reverseCycle :: Cycle -> Cycle
-reverseCycle cycle =
-  case cycle of
-       EmptyCycle -> EmptyCycle
-data Fallible a = Suc a | Err String
+instance Monoid Cycle where
+  mempty = EmptyCycle
+  mappend EmptyCycle cycle = cycle
+  mappend cycle EmptyCycle = cycle
+  mappend _ _ = EmptyCycle -- TODO HOLE
 
-instance Monad Fallible where
-  return = Suc
-  fx >>= f = case fx of
-                  Suc x -> f x
-                  Err s -> Err s
+-- data Fallible a = Suc a | Err String
 
-instance Applicative Fallible where
-  pure = return
-  (<*>) = Control.Monad.ap
+-- instance Monad Fallible where
+--   return = Suc
+--   fx >>= f = case fx of
+--                   Suc x -> f x
+--                   Err s -> Err s
 
-instance Functor Fallible where
-  fmap = Control.Monad.liftM
+-- instance Applicative Fallible where
+--   pure = return
+--   (<*>) = Control.Monad.ap
 
-isHetero :: (Eq a) => [a] -> Bool
--- \xs -> exists x,y:Subset xs. x /= y
-isHetero [] = True
-isHetero (x:xs) = notElem x xs && isHetero xs
+-- instance Functor Fallible where
+--   fmap = Control.Monad.liftM
 
-isHomo :: (Eq a) => [a] -> Bool
-isHomo [] = True
-isHomo (x:xs) = filter (==x) xs == xs
-
-removeDuplicates :: (Eq a) => [a] -> [a]
-removeDuplicates [] = []
-removeDuplicates (x:xs) = x:removeDuplicates (filter (/= x) xs)
-
-isInRange :: Int -> Int -> Int -> Bool
-isInRange p q x = x `elem` [p..q]
-
-isCycleValid :: Cycle -> Fallible Cycle
-isCycleValid cycle =
-  case cycle of
-       Tricycle p q r -> if isHetero [p,q,r] then Suc cycle else Err errMsg
-       Twocycle p q   -> if isHetero [p,q]   then Suc cycle else Err errMsg
-       EmptyCycle     -> Suc cycle
-    where errMsg = "Invalid Cycle:" ++ show cycle
   
-cycleTripleUnsafely :: Cycle -> Triple a -> Triple a
-cycleTripleUnsafely cycle triple = 
+cycleTriple:: Cycle -> Triple a -> Triple a
+cycleTriple cycle triple = 
   case cycle of
-       EmptyCycle -> triple
-       Twocycle p q   -> transposeTriple p' q' triple
-         where [p',q'] = fmap fromIndex [p,q]
-       Tricycle p q r -> (transposeTriple p' q' . transposeTriple q' r') triple
-         where [p',q',r'] = fmap fromIndex [p,q,r]
+       EmptyCycle     -> triple
+       Twocycle p q   -> transposeTriple p q triple
+       Tricycle p q r -> (transposeTriple p q . transposeTriple q r) triple
 
-cycleTriple :: Cycle -> Triple a -> Fallible (Triple a)
-cycleTriple cycle triple =
-  fmap (`cycleTripleUnsafely` triple) (isCycleValid cycle)
+-- cycleTriple :: Cycle -> Triple a -> Triple a
+-- cycleTriple cycle triple =
+--   fmap (`cycleTripleUnsafely` triple) (isCycleValid cycle)
 
-decomposeCycleUnsafely :: Cycle -> [(Int,Int)]
-decomposeCycleUnsafely cycle =
+decomposeCycleToPermutations:: Cycle -> [(Int,Int)]
+decomposeCycleToPermutations cycle =
   case cycle of
      EmptyCycle -> []
-     Twocycle p q   -> [(p',q')]
-         where [p',q'] = fmap fromIndex [p,q]
-     Tricycle p q r -> [(p',q'),(q',r')]
-         where [p',q',r'] = fmap fromIndex [p,q,r]
+     Twocycle p q   -> [(p,q)]
+     Tricycle p q r -> [(p,q),(q,r)]
 
-decomposeCycle :: Cycle -> Fallible [(Int,Int)]
-decomposeCycle cycle =
-  fmap decomposeCycleUnsafely (isCycleValid cycle)
- 
+cycleToOrder :: Cycle -> Triorder
+cycleToOrder EmptyCycle = Triple 0 1 2
+cycleToOrder (Twocycle p q) = transposeTriple p q (Triple 0 1 2) 
+cycleToOrder (Tricycle p q r) = (transposeTriple p q . transposeTriple q r) (Triple 0 1 2)
+
+--------------------------
 -- Transposition permutations
+--------------------------
 transposeTriple :: Int -> Int -> Triple a -> Triple a
 transposeTriple p q triple@(Triple a b c) =
-  if isHetero [p,q] && all (isInRange 0 2) [p,q]
+  if all (isInRange 0 2) [p,q]
      then case [p,q] of
                [0,1] -> Triple b a c
                [0,2] -> Triple c b a
                [1,2] -> Triple a c b
+               [0,0] -> triple
+               [1,1] -> triple
+               [2,2] -> triple
                [x,y] -> transposeTriple y x (Triple a b c)
      else error $ "transposeTriple " ++ show p ++ " " ++ show q ++ " - Invalid transposition positions"
