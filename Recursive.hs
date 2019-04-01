@@ -5,6 +5,7 @@
 module Recursive where
 
 import Triple
+import Data.Group
 
 class WithSubset r where
   isInSubset :: r -> Bool
@@ -127,15 +128,10 @@ initHT n = Triple [1..n] [] []
 buildTowers :: Int -> Int -> Int -> HanoiTowers
 buildTowers h1 h2 h3 = Triple [1..h1] [1..h2] [1..h3]
 
--- switchTowers :: Pole -> Pole -> HanoiTowers -> HanoiTowers
--- switchTowers p q ht 
---   | p == q = ht
---   | otherwise =
---       case (p, q) of
---            (First, Second) -> ht {first = second ht, second = first ht}
---            (Second, Third) -> ht {second = third ht, third = second ht}
---            (Third, First)  -> ht {first = third ht, third = first ht}
---            (x, y) -> switchTowers y x ht
+equiwideTowers :: Int -> Int -> Int -> HanoiTowers
+equiwideTowers h1 h2 h3 =
+  let ones = repeat 1
+    in Triple (take h1 ones) (take h2 ones) (take h3 ones)
 
 choseTower :: Pole -> HanoiTowers -> Tower
 choseTower pole ht =
@@ -164,16 +160,17 @@ moveBrick p q ht =
 unsafelyMoveBrick :: Pole -> Pole -> HanoiTowers -> HanoiTowers
 unsafelyMoveBrick First Second ht@Triple{first = (b:bs), second} =
   ht {first = bs, second = b:second}
-unsafelyMoveBrick Second First ht =
-  (transposeTriple 0 1 
-  .unsafelyMoveBrick First Second 
-  .transposeTriple 0 1
-  ) ht
+-- unsafelyMoveBrick Second First ht =
+--   (transposeTriple 0 1 
+--   .unsafelyMoveBrick First Second 
+--   .transposeTriple 0 1
+--   ) ht
 unsafelyMoveBrick p q ht =
   let [p',q',r'] = fmap toPosition [p,q,otherPole p q]
-      in (transposeTriple 1 q' . transposeTriple 0 p'
+      ordering = Triple p' q' r'
+      in (reorderTriple (invert ordering)
          .unsafelyMoveBrick First Second
-         .reorderTriple (Triple p' q' r')
+         .reorderTriple ordering
          ) ht
 
 moveBricks :: Steps -> HanoiTowers -> HanoiTowers

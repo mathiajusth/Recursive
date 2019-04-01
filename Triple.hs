@@ -1,15 +1,16 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Triple where
 
-import Control.Monad
 import Test.QuickCheck.Arbitrary
 import GHC.Generics (Generic)
 import Generic.Random
 
 import MyList (isInRange)
 import Data.Group
-import Data.Monoid
+import Data.Monoid()
 
 data Triple a = Triple{first :: a, second :: a, third :: a}
               deriving (Show, Eq, Generic)
@@ -24,6 +25,13 @@ instance Functor Triple where
 -- Reorder permutations
 --------------------------
 type Triorder = Triple Int
+
+instance Group Triorder where
+  invert = cycleToOrder . invert . orderToCycle
+
+instance Monoid Triorder where
+  mempty = cycleToOrder mempty
+  mappend o p = cycleToOrder $ mappend (orderToCycle o) (orderToCycle p)
 
 reorderTriple :: Triorder -> Triple a -> Triple a
 reorderTriple order triple@(Triple a b c) =
@@ -87,7 +95,6 @@ instance Monoid Cycle where
 
 -- instance Functor Fallible where
 --   fmap = Control.Monad.liftM
-
   
 cycleTriple:: Cycle -> Triple a -> Triple a
 cycleTriple cycle triple = 
