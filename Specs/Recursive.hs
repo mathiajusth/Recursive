@@ -1,7 +1,11 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 import Recursive
+import Triple
 
 import Test.Hspec
 import Test.QuickCheck
+import Control.Exception
 
 main :: IO ()
 main = hspec $ do
@@ -24,3 +28,15 @@ main = hspec $ do
     it "moves from Third to Second Pole" $ property $
       unsafelyMoveBrick Third Second (equiwideTowers 1 1 1) == equiwideTowers 1 2 0
 
+  describe "moveBrick" $ do
+    it "throws error when there is no birck to move" $
+      evaluate (moveBrick First Second (equiwideTowers 0 1 1)) `shouldThrow` anyException
+
+    it "throws error when the brick is larger" $
+      evaluate (moveBrick First Second (Triple [2] [1] [])) `shouldThrow` anyException
+
+  describe "solveHT" $ do
+    it "solves correctly" $ property $
+      \ (h :: Int) ->
+        h >= 0 && h <= 10 ==>
+          moveBricks (solveHT h) (buildTowers h 0 0) == buildTowers 0 0 h
