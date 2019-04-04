@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-import MyList
+import Utils.List
 
 import Test.Hspec
 import Test.QuickCheck

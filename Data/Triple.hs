@@ -2,13 +2,13 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module Triple where
+module Data.Triple where
 
 import Test.QuickCheck.Arbitrary
 import GHC.Generics (Generic)
 import Generic.Random
 
-import MyList (isInRange)
+import Utils.List (isInRange)
 import Data.Group
 import Data.Monoid()
 

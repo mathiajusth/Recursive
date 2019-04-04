@@ -1,12 +1,12 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-import Triple
-import MyList(isHetero)
-
 import Data.Group
-
 import Test.Hspec
 import Test.QuickCheck
+
+import Data.Triple
+import Utils.List (isHetero)
+
 
 main :: IO ()
 main = hspec $ do

@@ -4,7 +4,7 @@
 
 module Recursive where
 
-import Triple
+import Data.Triple
 import Data.Group
 
 class WithSubset r where

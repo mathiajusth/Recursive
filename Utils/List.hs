@@ -1,7 +1,6 @@
-module MyList where
+module Utils.List where
 
 isHetero :: (Eq a) => [a] -> Bool
--- \xs -> exists x,y:Subset xs. x /= y
 isHetero [] = True
 isHetero (x:xs) = notElem x xs && isHetero xs
 

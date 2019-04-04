@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 import Recursive
-import Triple
+import Data.Triple
 
 import Test.Hspec
 import Test.QuickCheck
