@@ -4,6 +4,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 
+module Data.StateWithLogging where
+
 import Control.Monad
 
 -- My State monad with state logging
