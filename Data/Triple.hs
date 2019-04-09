@@ -21,6 +21,9 @@ instance Arbitrary a => Arbitrary (Triple a) where
 instance Functor Triple where
   fmap f t = Triple (f $ first t) (f $ second t) (f $ third t)
 
+instance Foldable Triple where
+   foldMap f (Triple x y z) = foldMap f [x, y, z]
+
 --------------------------
 -- Reorder permutations
 --------------------------

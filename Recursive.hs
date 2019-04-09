@@ -134,6 +134,9 @@ hanoiStep _ (Triple top bottom topOnBottom) = top ++ bottom ++ topOnBottom
 solveHT :: Height -> Steps
 solveHT h = assemble hanoiStep hanoiBase $ HanoiTask{from = First, to = Third, height = h}
 
+solveHTC :: Height -> State Count Steps
+solveHTC h = assembleWithCount hanoiStep hanoiBase $ HanoiTask{from = First, to = Third, height = h}
+
 -- TESTING
 
 type Brick = Int
