@@ -9,7 +9,6 @@ import Data.Group (invert)
 
 import Data.Triple
 import Data.State
-import Data.StateWithLogging
 
 class WithSubset r where
   isInSubset :: r -> Bool
@@ -179,11 +178,6 @@ moveBrick p q ht =
 unsafelyMoveBrick :: Pole -> Pole -> HanoiTowers -> HanoiTowers
 unsafelyMoveBrick First Second ht@Triple{first = (b:bs), second} =
   ht {first = bs, second = b:second}
--- unsafelyMoveBrick Second First ht =
---   (transposeTriple 0 1 
---   .unsafelyMoveBrick First Second 
---   .transposeTriple 0 1
---   ) ht
 unsafelyMoveBrick p q ht =
   let [p',q',r'] = fmap toPosition [p,q,otherPole p q]
       ordering = Triple p' q' r'
