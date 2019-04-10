@@ -6,6 +6,7 @@
 module Recursive where
 
 import Data.Group (invert)
+import GHC.OldList(find)
 
 import Data.Triple
 import Data.State
@@ -191,3 +192,53 @@ unsafelyMoveBrick p q ht =
 
 moveBricks :: Steps -> HanoiTowers -> HanoiTowers
 moveBricks steps ht = foldl (flip $ uncurry moveBrick) ht steps
+
+--------------------
+-- Tower of Hanoi Optimized
+--------------------
+data AbstractPole = From | To | Other
+                  deriving (Eq, Show)
+
+newtype TowerHeight = TowerHeight Int
+
+instance WithSubset TowerHeight where
+  isInSubset (TowerHeight h) = h== 0 || h == 1
+
+instance Recursive [] TowerHeight where
+  recurse (TowerHeight h) = [TowerHeight (h - 1)
+                            ,TowerHeight 1
+                            ]
+
+type AbstractStep = (AbstractPole,AbstractPole)
+type AbstractSteps = [AbstractStep]
+
+type SubstitutionRule = (AbstractPole,AbstractPole)
+type SubstitutionRules = [SubstitutionRule]
+
+subsPolesInStep :: SubstitutionRules -> AbstractStep -> AbstractStep
+subsPolesInStep srs step =
+  let currentFrom = fst step
+      currentTo   = snd step
+      subsRuleForFrom = find (\rule -> fst rule == currentFrom) srs 
+      subsRuleForTo   = find (\rule -> fst rule == currentTo) srs 
+      maybeChange Nothing            oldPole = oldPole
+      maybeChange (Just (_,newPole)) _       = newPole
+      in (maybeChange subsRuleForFrom currentFrom
+         ,maybeChange subsRuleForTo   currentTo
+         )
+
+hanoiBaseO :: TowerHeight -> AbstractSteps
+hanoiBaseO (TowerHeight 0) =  []
+hanoiBaseO (TowerHeight 1) =  [(From,To)]
+
+hanoiStepO :: TowerHeight -> [AbstractSteps] -> AbstractSteps
+hanoiStepO _ [moveTopSteps, moveBottomSteps] =
+  fmap (subsPolesInStep [(To,Other),(Other,To)]) moveTopSteps ++
+  moveBottomSteps ++
+  fmap (subsPolesInStep [(From,Other),(Other,From)]) moveTopSteps
+
+solveHTO :: Height -> AbstractSteps
+solveHTO h = assemble hanoiStepO hanoiBaseO $ TowerHeight h
+
+solveHTOC :: Height -> State Count AbstractSteps
+solveHTOC h = assembleWithCount hanoiStepO hanoiBaseO $ TowerHeight h 
