@@ -7,9 +7,11 @@ module Recursive where
 
 import Data.Group (invert)
 import GHC.OldList(find)
+import Data.Tuple.Extra(both)
 
 import Data.Triple
 import Data.State
+import Utils.Miscellaneous(transposeValues)
 
 class WithSubset r where
   isInSubset :: r -> Bool
@@ -24,6 +26,10 @@ assemble step base arg =
      else step arg $ fmap (assemble step base) (recurse arg)
 
 type Count = Int
+
+-- is "Oprhan instance" on purpose
+instance Initializable Count where
+  initial = 0
 
 -- assemble and count the number of recursive calls
 assembleWithCount :: (Recursive m a, WithSubset a, Foldable m) => (a -> m b -> b) -> (a -> b) -> a -> State Count b
@@ -42,7 +48,7 @@ assembleWithCount step base arg =
 --------------------
 -- Factorial
 --------------------
-newtype FactNat = FactNat Integer
+newtype FactNat = FactNat Int
 
 instance WithSubset FactNat where
   isInSubset (FactNat n) = n == 0
@@ -57,20 +63,20 @@ instance Recursive Id FactNat where
     | x >= 1    = Id . FactNat $ x - 1
     | otherwise = Id . FactNat $ x
 
-factBase :: FactNat -> Integer
+factBase :: FactNat -> Int
 factBase (FactNat 0) = 1
 factBase _ = error "Not a base element"
 
-factStep :: FactNat -> Id Integer -> Integer
+factStep :: FactNat -> Id Int -> Int
 factStep (FactNat n) (Id x) = n*x
 
-fact :: Integer -> Integer
+fact :: Int -> Int
 fact n = assemble factStep factBase $ FactNat n
 
 --------------------
 -- Fibonacci
 --------------------
-newtype FibNat = FibNat Integer
+newtype FibNat = FibNat Int
 
 instance WithSubset FibNat where
   isInSubset (FibNat x) = x == 0 || x == 1
@@ -80,18 +86,18 @@ instance Recursive [] FibNat where
     | x >= 2    = [FibNat $ x - 2, FibNat $ x - 1]
     | otherwise = return . FibNat $ x
 
-fibBase :: FibNat -> Integer
+fibBase :: FibNat -> Int
 fibBase (FibNat 0) = 0
 fibBase (FibNat 1) = 1
 fibBase _ = error "Not a base element"
 
-fibStep :: FibNat -> [Integer] -> Integer
+fibStep :: FibNat -> [Int] -> Int
 fibStep _ = sum
 
-fib :: Integer -> Integer
+fib :: Int -> Int
 fib n = assemble fibStep fibBase $ FibNat n
 
-fibC :: Integer -> State Count Integer
+fibC :: Int -> State Count Int
 fibC n = assembleWithCount fibStep fibBase $ FibNat n
 
 --------------------
@@ -132,11 +138,11 @@ hanoiBase HanoiTask{from, to, height}
 hanoiStep :: HanoiTask -> Triple Steps -> Steps
 hanoiStep _ (Triple top bottom topOnBottom) = top ++ bottom ++ topOnBottom
 
-solveHT :: Height -> Steps
-solveHT h = assemble hanoiStep hanoiBase $ HanoiTask{from = First, to = Third, height = h}
+toh :: Height -> Steps
+toh h = assemble hanoiStep hanoiBase $ HanoiTask{from = First, to = Third, height = h}
 
-solveHTC :: Height -> State Count Steps
-solveHTC h = assembleWithCount hanoiStep hanoiBase $ HanoiTask{from = First, to = Third, height = h}
+tohC :: Height -> State Count Steps
+tohC h = assembleWithCount hanoiStep hanoiBase $ HanoiTask{from = First, to = Third, height = h}
 
 -- TESTING
 
@@ -212,33 +218,33 @@ instance Recursive [] TowerHeight where
 type AbstractStep = (AbstractPole,AbstractPole)
 type AbstractSteps = [AbstractStep]
 
+exchangePoles :: (AbstractPole,AbstractPole) -> AbstractSteps -> AbstractSteps
+exchangePoles cycle  = fmap (both $ transposeValues cycle)
+
 type SubstitutionRule = (AbstractPole,AbstractPole)
 type SubstitutionRules = [SubstitutionRule]
-
-subsPolesInStep :: SubstitutionRules -> AbstractStep -> AbstractStep
-subsPolesInStep srs step =
-  let currentFrom = fst step
-      currentTo   = snd step
-      subsRuleForFrom = find (\rule -> fst rule == currentFrom) srs 
-      subsRuleForTo   = find (\rule -> fst rule == currentTo) srs 
-      maybeChange Nothing            oldPole = oldPole
-      maybeChange (Just (_,newPole)) _       = newPole
-      in (maybeChange subsRuleForFrom currentFrom
-         ,maybeChange subsRuleForTo   currentTo
-         )
 
 hanoiBaseO :: TowerHeight -> AbstractSteps
 hanoiBaseO (TowerHeight 0) =  []
 hanoiBaseO (TowerHeight 1) =  [(From,To)]
 
 hanoiStepO :: TowerHeight -> [AbstractSteps] -> AbstractSteps
-hanoiStepO _ [moveTopSteps, moveBottomSteps] =
-  fmap (subsPolesInStep [(To,Other),(Other,To)]) moveTopSteps ++
-  moveBottomSteps ++
-  fmap (subsPolesInStep [(From,Other),(Other,From)]) moveTopSteps
+hanoiStepO _ [moveTopSteps, moveBottomSteps] = concat
+  [exchangePoles (To  ,Other) moveTopSteps 
+  ,                           moveBottomSteps 
+  ,exchangePoles (From,Other) moveTopSteps
+  ]
 
-solveHTO :: Height -> AbstractSteps
-solveHTO h = assemble hanoiStepO hanoiBaseO $ TowerHeight h
+tohO :: Height -> AbstractSteps
+tohO h = assemble hanoiStepO hanoiBaseO $ TowerHeight h
 
-solveHTOC :: Height -> State Count AbstractSteps
-solveHTOC h = assembleWithCount hanoiStepO hanoiBaseO $ TowerHeight h 
+tohOC :: Height -> State Count AbstractSteps
+tohOC h = assembleWithCount hanoiStepO hanoiBaseO $ TowerHeight h 
+
+toConcreteSteps :: AbstractSteps -> Steps
+toConcreteSteps ass = fmap toConcreteStep ass
+  where toConcreteStep (p,q) = (toConcretePole p,toConcretePole q)
+        toConcretePole p = case p of
+                                From  -> First
+                                To    -> Third
+                                Other -> Second

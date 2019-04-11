@@ -17,12 +17,6 @@ instance Monad (State s) where
                                (s2,b) = effect (f a) s1
                            in  (s2,b)
 
-returnState :: State s a -> s -> s
-returnState sa initalState = fst (effect sa initalState)
-
-returnValue :: State s a -> s -> a
-returnValue sa initalState = snd (effect sa initalState)
-
 instance Applicative (State s) where
   pure = return
   sab <*> sa  = State $ \s -> let (s1,ab) = effect sab s
@@ -32,6 +26,21 @@ instance Applicative (State s) where
 instance Functor (State s) where
   fmap ab sa = State $ \s -> let (s1,a) = effect sa s
                              in  (s1,ab a)
+
+effectAndreturnState :: State s a -> s -> s
+effectAndreturnState sa initalState = fst (effect sa initalState)
+
+effectAndreturnValue :: State s a -> s -> a
+effectAndreturnValue sa initalState = snd (effect sa initalState)
+
+class Initializable a where
+  initial :: a
+
+returnState :: (Initializable s) => State s a -> s
+returnState sa = fst (effect sa initial)
+
+returnValue :: (Initializable s) => State s a -> a
+returnValue sa = snd (effect sa initial)
 
 --------------------
    -- EXAMPLES --
