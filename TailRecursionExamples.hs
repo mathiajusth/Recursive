@@ -1,6 +1,7 @@
 module TailRecursionExamples where
 
 import Recursive(AbstractSteps, Height, AbstractPole(..),exchangePoles)
+import Data.Numbers.Primes(isPrime)
 
 sumNat :: Int -> Int
 sumNat n = sumNat' n 0

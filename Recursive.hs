@@ -5,9 +5,11 @@
 
 module Recursive where
 
-import Data.Group (invert)
 import GHC.OldList(find)
+import Data.Group (invert)
 import Data.Tuple.Extra(both)
+import Data.Numbers.Primes(isPrime)
+import Data.Maybe(fromMaybe)
 
 import Data.Triple
 import Data.State
@@ -248,3 +250,29 @@ toConcreteSteps ass = fmap toConcreteStep ass
                                 From  -> First
                                 To    -> Third
                                 Other -> Second
+
+--------------------
+-- The Count of Prime Factors 
+--------------------
+
+newtype PFNat = PFNat Int
+
+instance WithSubset PFNat where
+  isInSubset (PFNat n) = isPrime n
+
+instance Recursive Id PFNat where
+  recurse (PFNat n) = Id . PFNat $ div n (lowestDivisor n)
+
+lowestDivisor :: Int -> Int
+lowestDivisor n =
+  let maybeDivisor = find (\i ->mod n i == 0) [2..n-1]
+      in fromMaybe n maybeDivisor
+
+primeFactorCountBase :: PFNat -> Int
+primeFactorCountBase _ = 1
+
+primeFactorCountStep :: PFNat -> Id Int -> Int
+primeFactorCountStep _ (Id count) = 1 + count
+
+primeFactorCount :: Int -> Int
+primeFactorCount n = assemble primeFactorCountStep primeFactorCountBase $ PFNat n
