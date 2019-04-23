@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-import Recursive(tohO)
+import Examples.TowerOfHanoiOptimized(tohO)
 import TailRecursionExamples
 
 import Test.Hspec

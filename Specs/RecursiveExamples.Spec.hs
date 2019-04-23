@@ -1,12 +1,15 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-import Recursive
 import Data.Triple
 import Data.State(returnState)
 
 import Test.Hspec
 import Test.QuickCheck
 import Control.Exception
+
+import Examples.Fibonacci
+import Examples.TowerOfHanoi
+import Examples.TowerOfHanoiOptimized
 
 fibComplexity :: Int -> Int
 fibComplexity 0 = 0
