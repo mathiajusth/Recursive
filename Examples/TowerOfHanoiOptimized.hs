@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Examples.TowerOfHanoiOptimized where
 
@@ -15,15 +16,11 @@ import Data.Tuple.Extra(both)
 data AbstractPole = From | To | Other
                   deriving (Eq, Show)
 
-newtype TowerHeight = TowerHeight Int
+instance BaseOf Height where
+  isBasal h = h== 0 || h == 1
 
-instance WithSubset TowerHeight where
-  isInSubset (TowerHeight h) = h== 0 || h == 1
-
-instance Recursive [] TowerHeight where
-  recurse (TowerHeight h) = [TowerHeight (h - 1)
-                            ,TowerHeight 1
-                            ]
+instance Recursive [] Height where
+  recurse h = [h - 1 ,1]
 
 type AbstractStep = (AbstractPole,AbstractPole)
 type AbstractSteps = [AbstractStep]
@@ -34,11 +31,11 @@ exchangePoles cycle  = fmap (both $ transposeValues cycle)
 type SubstitutionRule = (AbstractPole,AbstractPole)
 type SubstitutionRules = [SubstitutionRule]
 
-hanoiBaseO :: TowerHeight -> AbstractSteps
-hanoiBaseO (TowerHeight 0) =  []
-hanoiBaseO (TowerHeight 1) =  [(From,To)]
+hanoiBaseO :: Height -> AbstractSteps
+hanoiBaseO 0 =  []
+hanoiBaseO 1 =  [(From,To)]
 
-hanoiStepO :: TowerHeight -> [AbstractSteps] -> AbstractSteps
+hanoiStepO :: Height -> [AbstractSteps] -> AbstractSteps
 hanoiStepO _ [moveTopSteps, moveBottomSteps] = concat
   [exchangePoles (To  ,Other) moveTopSteps 
   ,                           moveBottomSteps 
@@ -46,10 +43,10 @@ hanoiStepO _ [moveTopSteps, moveBottomSteps] = concat
   ]
 
 tohO :: Height -> AbstractSteps
-tohO h = assemble hanoiStepO hanoiBaseO $ TowerHeight h
+tohO = assemble hanoiStepO hanoiBaseO
 
 tohOC :: Height -> State Count AbstractSteps
-tohOC h = assembleWithCount hanoiStepO hanoiBaseO $ TowerHeight h 
+tohOC = assembleWithCount hanoiStepO hanoiBaseO
 
 toConcreteSteps :: AbstractSteps -> Steps
 toConcreteSteps = fmap toConcreteStep

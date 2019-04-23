@@ -26,8 +26,8 @@ data HanoiTask = HanoiTask
   ,height :: Height
   }
 
-instance WithSubset HanoiTask where
-  isInSubset HanoiTask{height} = height == 0 || height == 1
+instance BaseOf HanoiTask where
+  isBasal HanoiTask{height} = height == 0 || height == 1
 
 instance Recursive Triple HanoiTask where
   recurse HanoiTask{from, to, height} =

@@ -8,22 +8,20 @@ import Data.Id
 --------------------
 -- Factorial
 --------------------
-newtype FactNat = FactNat Int
+instance BaseOf Int where
+  isBasal n = n == 0
 
-instance WithSubset FactNat where
-  isInSubset (FactNat n) = n == 0
+instance Recursive Id Int where
+  recurse x
+    | x >= 1    = Id $ x - 1
+    | otherwise = Id x
 
-instance Recursive Id FactNat where
-  recurse (FactNat x)
-    | x >= 1    = Id . FactNat $ x - 1
-    | otherwise = Id . FactNat $ x
-
-factBase :: FactNat -> Int
-factBase (FactNat 0) = 1
+factBase :: Int -> Int
+factBase 0 = 1
 factBase _ = error "Not a base element"
 
-factStep :: FactNat -> Id Int -> Int
-factStep (FactNat n) (Id x) = n*x
+factStep :: Int -> Id Int -> Int
+factStep n (Id x) = n*x
 
 fact :: Int -> Int
-fact n = assemble factStep factBase $ FactNat n
+fact = assemble factStep factBase
