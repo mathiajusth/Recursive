@@ -52,7 +52,9 @@ toh h = assemble hanoiStep hanoiBase $ HanoiTask{from = First, to = Third, heigh
 tohC :: Height -> State Count Steps
 tohC h = assembleWithCount hanoiStep hanoiBase $ HanoiTask{from = First, to = Third, height = h}
 
+--------------------
 -- TESTING
+--------------------
 
 type Brick = Int
 type Tower = [Brick]

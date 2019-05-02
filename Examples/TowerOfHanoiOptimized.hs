@@ -48,6 +48,10 @@ tohO = assemble hanoiStepO hanoiBaseO
 tohOC :: Height -> State Count AbstractSteps
 tohOC = assembleWithCount hanoiStepO hanoiBaseO
 
+--------------------
+-- TESTING
+--------------------
+
 toConcreteSteps :: AbstractSteps -> Steps
 toConcreteSteps = fmap toConcreteStep
   where toConcreteStep (p,q) = (toConcretePole p,toConcretePole q)
